@@ -11,7 +11,7 @@ CXXFLAGS := -std=c++11 -D _DEBUG -ggdb3 -std=c++17 -O0 -Wall -Wextra -Weffc++ -W
 -fstrict-overflow -flto-odr-type-merging -fno-omit-frame-pointer -Wlarger-than=8192 -Wstack-usage=8192 -pie -fPIE -Werror=vla \
 -fsanitize=address,alignment,bool,bounds,enum,float-cast-overflow,float-divide-by-zero,integer-divide-by-zero,leak,nonnull-attribute,null,object-size,return,returns-nonnull-attribute,shift,signed-integer-overflow,undefined,unreachable,vla-bound,vptr
 
-CPPOBJ :=  ./stack_funks.o ./stack_check.o ./processor.o ./commands_funks.o
+CPPOBJ :=  ./stack_funks.o ./stack_check.o ./processor.o ./commands_funks.o ./assembler.o
 
 processor.exe: $(CPPOBJ)
 	g++ $(CXXFLAGS) $(CPPOBJ) -o ./processor.exe 
@@ -30,6 +30,10 @@ processor.exe: $(CPPOBJ)
 
 ./commands_funks.o: ./commands_funks.cpp
 	g++ $(CXXFLAGS) -c ./commands_funks.cpp -o ./commands_funks.o
+
+./assembler.o: ./assembler.cpp
+	g++ $(CXXFLAGS) -c ./assembler.cpp -o ./assembler.o
+
 
 processor: $(CPPOBJ)
 	g++ $(CXXFLAGS) $(CPPOBJ) -o ./processor
