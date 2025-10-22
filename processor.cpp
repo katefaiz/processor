@@ -11,6 +11,8 @@
 Processor_err bite_code_read(Processor *processor);
 Processor_err run_bytecode(Processor *processor);
 Processor_err processor_init(Processor *processor, type_t capacity);
+Processor_err processor_dump(Processor *processor);
+
 
 int main() { 
    
@@ -20,22 +22,41 @@ int main() {
         printf("Ошибка инициализации процессора\n");
         return 1;
     }
-    int program[40] = {}; 
-    asm_commands_data(program);
     
-    bite_code_file(program, 100);
-    bite_code_read(&processor);
-    run_bytecode(&processor);
-    printf("-----------------------------------\n");
-    stack_dump(&processor.stk, stack_verify(&processor.stk));
-    for (int i = 0; i < 40; i++) {
-        printf("%d ", processor.code[i]);
+    Assembler assembler;
+    proc_err = assembler_init(&assembler, "commands_data.txt", "bite_code.txt");
+    if (proc_err != NO_ERROR) {
+        printf("Ошибка инициализации асемблера\n");
+        return 1;
     }
 
-    printf("\n------------регистры---------------\n");
-    for (int i = 0; i < 4; i++) {
-        printf("Регистр %d: имя=%d, значение=%d\n", i, processor.regs[i].reg, processor.regs[i].reg_val);
+    proc_err = assembler_compile(&assembler);
+    if (proc_err != NO_ERROR) {
+        printf("Ошибка компиляции\n");
+        return 1;
     }
+    //assembler_compile(&assembler);
+    proc_err = assembler_save_to_file(&assembler);
+    if (proc_err != NO_ERROR) {
+        printf("Ошибка сохранения байт-кода\n");
+        return 1;
+    }
+
+
+
+    bite_code_read(&processor);
+    run_bytecode(&processor);
+
+    printf("-----------------------------------\n");
+    //stack_dump(&processor.stk, stack_verify(&processor.stk));
+    processor_dump(&processor);
+    printf("МЕТКИ:\n");
+    for (int i = 0; i < 20; i++) { 
+        printf("%d ", assembler.labels[i]);
+        
+    }
+    
+    assembler_destroy(&assembler);
     processor_destroy(&processor);
 }
 
@@ -56,7 +77,14 @@ Processor_err processor_init(Processor *processor, type_t capacity) {
         printf("Ошибка инициализации стека: %d\n", stack_err);
         return STACK_ERROR;
     }
-    
+
+    stack_err = stack_init(&processor->call_stack, 20); // стек на 20 адресов возврата
+    if (stack_err != STACK_NO_ERROR) {
+        printf("Ошибка инициализации стека вызовов: %d\n", stack_err);
+        stack_destroy(&processor->stk);
+        return STACK_ERROR;
+    }
+
     return NO_ERROR;
 }
 
@@ -65,6 +93,7 @@ Processor_err run_bytecode(Processor *processor) { //выполняет байт
     
     while (processor->counter < 100) {
         int command = processor->code[processor->counter];
+        printf("Выполняется команда %d по адресу %d\n", command, processor->counter);
         if (command == HLT) 
             break;
         
@@ -105,11 +134,15 @@ Processor_err run_bytecode(Processor *processor) { //выполняет байт
                     break;  
                 case JMP: 
                     processor_JMP(processor);  
-                    step = 2;
-                break; 
+                    continue;
+                case CALL:                  
+                    processor_CALL(processor);
+                    continue;
+                case RET:                     
+                    processor_RET(processor);
+                    continue;
                 default: 
                     printf("Неизвестная команда: %d\n", command);
-                    stack_destroy(&processor->stk);
                     return STACK_ERROR;
                 
             }
@@ -138,4 +171,36 @@ Processor_err bite_code_read(Processor *processor) { //читает файл с 
     fclose(filesteam);
     return NO_ERROR;
 
+}
+
+Processor_err processor_dump(Processor *processor) {
+    assert(processor != NULL);
+    
+    printf("\n=== СОСТОЯНИЕ ПРОЦЕССОРА ===\n");
+    
+    printf(" РЕГИСТРЫ:\n");
+    const char* reg_names[] = {"ROX", "RAX", "RBX", "RCX", "RDX"};
+    for (int i = 0; i < 4; i++) {
+        printf("  %s = %d\n", reg_names[i], processor->regs[i].reg_val);
+    }
+    
+    printf(" СЧЕТЧИК КОМАНД: %d\n", processor->counter);
+    printf("\n");
+    printf("\n СТЕК ВЫЗОВОВ\n");
+    if (processor->call_stack.size == 0) {
+        printf("Стек вызовов пуст\n");
+    } 
+    else {
+        for (int i = 0; i < processor->call_stack.size; i++) {
+            printf("[%d] = %d (адрес возврата)\n", i, processor->call_stack.data[i]);
+        }
+    }
+    
+    Stack_err_t stack_err = stack_verify(&processor->stk);
+    printf("\n ОСНОВНОЙ СТЕК \n");
+    stack_dump(&processor->stk, stack_err);
+    
+    printf("================================\n\n");
+    
+    return NO_ERROR;
 }
