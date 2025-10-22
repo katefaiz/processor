@@ -23,6 +23,8 @@ enum Commands {
     JMP     = 8, //перепрыг на нужный адрес
     CALL    = 9, // вызов функции
     RET     = 10, // возврат из функции
+    POPM    = 11, //удаляю из стека и кладу в оперативную память 
+    PUSHM   = 12,
     POPR    = 42, // удаляю из стека и кладу в регистр
     PUSHR   = 33, //кладу в стек из регистра, в регистре остается
     ERROR   = 666 //для ошибки
@@ -48,7 +50,8 @@ struct Processor {
     Stack_t call_stack; 
     int code[100] = {};
     int counter = 0; //текщая команда
-    Register regs[4] = {}; //массив со структурами              
+    Register regs[5] = {};   
+    int RAM[100] = {};
 };
 
 enum Processor_err {

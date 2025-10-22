@@ -8,53 +8,140 @@
 #include "commands_funks.h" 
 #include "assembler.h"
 
-Processor_err asm_commands_data(int *program) {
-    assert(program != NULL);
 
-    FILE * filestream = fopen("commands_data.txt", "r");
+Processor_err assembler_init(Assembler *assembler) {
+    assert(assembler != NULL);
+    
+    memset(assembler->program, 0, sizeof(assembler->program));
+    memset(assembler->labels, -1, sizeof(assembler->labels)); 
+    assembler->labels_count = 0;
+    assembler->program_size = 0;
+    
+    return NO_ERROR;
+}
+
+
+Processor_err assembler_compile(Assembler *assembler) {
+    assert(assembler != NULL);
+
+    FILE * filestream = fopen(assembler->source_file, "r");
     if (filestream == NULL) 
         return OPENFILE_ERROR;
     
     char line[100];
-    int count = 0;
+    int count = 0;//сюда будем считать размер байт-кода
 
+    // ПЕРВЫЙ ПРОХОД: 
+    while(fgets(line, sizeof(line), filestream)) {
+        int ind = 0;
+        while (line[ind] == ' ')
+            ind++;
+
+        if (line[ind] == ';') {
+            continue;
+        }
+        
+        if (line[ind] == ':') {
+            ind++;
+            int label_index = atoi(line + ind);
+            
+            if (label_index >= 0 && label_index < 20) { 
+                assembler->labels[label_index] = count;
+                //printf("Метка :%d указывает на адрес %d\n", label_index, count);
+            }
+        }
+        else if (line[ind] != '\n' && line[ind] != '\0') {
+            char command[10] = {};
+            int cmd_start = ind;
+            
+            while (line[ind] != ' ' && line[ind] != '\0' && line[ind] != '\n') {
+                if (ind - cmd_start < 9) {
+                    command[ind - cmd_start] = line[ind];
+                }
+                ind++;
+            }
+            command[ind - cmd_start] = '\0';
+            
+            Commands cmd_code = comparing_commands(command);
+            
+            //считаем сколько ячеек занимает команда
+            if (cmd_code == PUSH || cmd_code == POPR || cmd_code == PUSHR || 
+                cmd_code == JMP || cmd_code == CALL) {
+                count += 2; 
+            }
+            else if (cmd_code != ERROR) {
+                count += 1; 
+            }
+        }
+    }
+    
+    fseek(filestream, 0, SEEK_SET); //прыг на начало файла
+    count = 0;
+    
+    // ВТОРОЙ ПРОХОД: компиляция байт-кода
     while(fgets(line, sizeof(line), filestream)) {
         char command[10] = {};
         char value_str[50] = {};
         int value = 0;
         int ind = 0;
 
+        while (line[ind] == ' ')
+            ind++;
+
+        if (line[ind] == ':') {
+            // Пропускаем метку и ее номер
+            ind++;
+            while (line[ind] >= '0' && line[ind] <= '9')
+                ind++;
+            // Пропускаем пробелы после метки
+            while (line[ind] == ' ')
+                ind++;
+            
+            // Если после метки есть команды - обрабатываем их
+            if (line[ind] != '\n' && line[ind] != '\0' && line[ind] != ';') {
+                // Продолжаем обработку с этого места
+                // НЕ используем continue!
+            } else {
+                // Если после метки только комментарий или пусто - пропускаем строку
+                continue;
+            }
+        }
+        if (line[ind] == ';') {
+            continue;
+        }
         
+        //пропускаем пустые строки
+        if (line[ind] == '\n' || line[ind] == '\0') {
+            continue;
+        }
+
+        int cmd_start = ind;
         while (line[ind] != ' ' && line[ind] != '\0' && line[ind] != '\n') {
-            if (ind < 10) {
-                command[ind] = line[ind];
+            if (ind - cmd_start < 9) {
+                command[ind - cmd_start] = line[ind];
             }
             ind++;
         }
-        command[ind] = '\0';
+        command[ind - cmd_start] = '\0';
 
         Commands cmd_code = comparing_commands(command);
+        
+        while (line[ind] == ' ')
+            ind++;
 
         if (cmd_code == PUSH) {
-            while (line[ind] == ' ') // скип пробелов
-                ind++;
-            
             if (line[ind] != '\0' && line[ind] != '\n') {
                 value = atoi(line + ind);
-                program[count++] = cmd_code;  // команда 
-                program[count++] = value;     // значение
-            }
-            printf("  PUSH: команда=%d, значение=%d\n", cmd_code, value);
+                assembler->program[count++] = cmd_code;
+                assembler->program[count++] = value;
+                //printf("PUSH: команда=%d, значение=%d\n", cmd_code, value);
+            }    
         }
-
         else if (cmd_code == PUSHR || cmd_code == POPR) {
-            while (line[ind] == ' ') 
-                ind++;
-            
             if (line[ind] != '\0' && line[ind] != '\n') {
                 int value_ind = 0;
-                while (line[ind] != '\0' && line[ind] != '\n' && line[ind] != ' ' && line[ind] != '\t') {
-                    if (value_ind < 49) {
+                while (line[ind] != '\0' && line[ind] != '\n' && line[ind] != ' ') {
+                    if (value_ind < 50) {
                         value_str[value_ind] = line[ind];
                         value_ind++;
                     }
@@ -63,51 +150,127 @@ Processor_err asm_commands_data(int *program) {
                 value_str[value_ind] = '\0';
                 
                 Registers_name reg = comparing_registers(value_str);
-                program[count++] = cmd_code;      // команда 
-                program[count++] = (int)reg;      // номер регистра
-                printf("  %s: команда=%d, регистр='%s'->%d\n", command, cmd_code, value_str, (int)reg);
+                assembler->program[count++] = cmd_code;
+                assembler->program[count++] = (int)reg;
+                //printf("%s: команда=%d, регистр='%s'->%d\n", command, cmd_code, value_str, (int)reg);
             }
         }
-
-        else if (cmd_code == JMP) {  
-            while (line[ind] == ' ') 
-                ind++;
+        else if (cmd_code == JMP || cmd_code == CALL) {  
             if (line[ind] != '\0' && line[ind] != '\n') {
+                if (line[ind] == ':')  
+                    ind++;
+                    
                 value = atoi(line + ind);
-                program[count++] = cmd_code;  
-                program[count++] = value;     
+                assembler->program[count++] = cmd_code;
+                assembler->program[count++] = value;
+                //printf("%s: команда=%d, метка=%d\n", command, cmd_code, value);
             }
-            printf("  JMP: команда=%d, адрес=%d\n", cmd_code, value);
         }
-        else {
-            program[count++] = cmd_code;
+        else if (cmd_code != ERROR) {
+            assembler->program[count++] = cmd_code;
+            //printf("%s: команда=%d\n", command, cmd_code);
         }
     }
     
+    assembler->program_size = count;
     fclose(filestream);
+    assembler_resolve_labels(assembler);
     return NO_ERROR;
 }
 
-Processor_err bite_code_file(int program[], int size) { // записывает массив с кодом в файл
-    FILE *filestream = fopen("bite_code.txt", "w");
+Processor_err assembler_resolve_labels(Assembler *assembler) { //из индекса метки получаю реальные адреса
+    assert(assembler != NULL);
+    
+    for (int i = 0; i < assembler->program_size; i++) {
+        if (assembler->program[i] == JMP || assembler->program[i] == CALL) {
+            int label_index = assembler->program[i + 1]; //индекс метки в массиве меток (для :2 это 2)
+            
+            int address = assembler->labels[label_index];//адрес, куда указывает метка
+            assembler->program[i + 1] = address;            
+            i++; 
+        }
+    }
+    return NO_ERROR;
+}
+
+Processor_err assembler_save_to_file(Assembler *assembler) { // записывает массив с кодом в файл
+    FILE *filestream = fopen(assembler->output_file, "w");
     if (filestream == NULL) {
         printf("Ошибка открытия файла \n");
         return OPENFILE_ERROR;
     }
     
-    int i = 0;
-    while (i < size && program[i] != 0) {
-        fprintf(filestream, "%d ", program[i]);
-        i++;
-    }
-    if (i < size) {
-        fprintf(filestream, "%d", program[i]);
+    for (int i = 0; i < assembler->program_size; i++) {
+        fprintf(filestream, "%d ", assembler->program[i]);
     }
     
     fclose(filestream);
     return NO_ERROR;
 
 }
+
+Processor_err assembler_destroy(Assembler *assembler) {
+    assert(assembler != NULL);
+    
+    memset(assembler->program, 0, sizeof(assembler->program));
+    memset(assembler->labels, -1, sizeof(assembler->labels));
+    assembler->program_size = 0;
+    
+    return NO_ERROR;
+}
+
+Commands comparing_commands(const char *command) { 
+    if (strcmp(command, "PUSH") == 0)   
+        return PUSH;
+    if (strcmp(command, "ADD") == 0)    
+        return ADD;
+    if (strcmp(command, "SUB") == 0)    
+        return SUB;
+    if (strcmp(command, "MUL") == 0)    
+        return MUL;
+    if (strcmp(command, "DIV") == 0)    
+        return DIV;
+    if (strcmp(command, "OUT") == 0)    
+        return OUT;
+    if (strcmp(command, "HLT") == 0)    
+        return HLT;
+    if (strcmp(command, "SQRT") == 0)   
+        return SQRT;
+    if (strcmp(command, "POPR") == 0)   
+        return POPR;
+    if (strcmp(command, "PUSHR") == 0)   
+        return PUSHR;
+    if (strcmp(command, "JMP") == 0)    
+        return JMP;
+    if (strcmp(command, "CALL") == 0)   
+        return CALL;   
+    if (strcmp(command, "RET") == 0)    
+        return RET;
+    if (strcmp(command, "POPM") == 0)   
+        return POPM;
+    if (strcmp(command, "PUSHM") == 0)   
+        return PUSHM;
+    else                                
+        return ERROR;
+}
+
+Registers_name comparing_registers(const char *reg_name) {
+
+    if (strcmp(reg_name, "RAX") == 0) 
+        return RAX;
+    if (strcmp(reg_name, "RBX") == 0) 
+        return RBX;
+    if (strcmp(reg_name, "RCX") == 0)     
+        return RCX;
+    if (strcmp(reg_name, "RDX") == 0) 
+        return RDX;
+    
+    printf("Ошибка: неизвестный регистр '%s'\n", reg_name);
+    return ROX; 
+}
+
+
+
 
 Processor_err disasm_commands_data(int program[]) { // проверка ассемблирования
     int index = 0;
@@ -163,56 +326,6 @@ Processor_err disasm_commands_data(int program[]) { // проверка ассе
     }
     return NO_ERROR;
 }
-
-Commands comparing_commands(const char *command) { 
-    if (strcmp(command, "PUSH") == 0)   
-        return PUSH;
-    if (strcmp(command, "ADD") == 0)    
-        return ADD;
-    if (strcmp(command, "SUB") == 0)    
-        return SUB;
-    if (strcmp(command, "MUL") == 0)    
-        return MUL;
-    if (strcmp(command, "DIV") == 0)    
-        return DIV;
-    if (strcmp(command, "OUT") == 0)    
-        return OUT;
-    if (strcmp(command, "HLT") == 0)    
-        return HLT;
-    if (strcmp(command, "SQRT") == 0)   
-        return SQRT;
-    if (strcmp(command, "POPR") == 0)   
-        return POPR;
-    if (strcmp(command, "PUSHR") == 0)   
-        return PUSHR;
-    if (strcmp(command, "JMP") == 0)    
-        return JMP;
-    else                                
-        return ERROR;
-}
-
-Registers_name comparing_registers(const char *reg_name) {
-    // Убедитесь, что регистры правильно сравниваются
-    if (strcmp(reg_name, "RAX") == 0) 
-        return RAX;
-    if (strcmp(reg_name, "RBX") == 0) 
-        return RBX;
-    if (strcmp(reg_name, "RCX") == 0)     
-        return RCX;
-    if (strcmp(reg_name, "RDX") == 0) 
-        return RDX;
-    
-    printf("Ошибка: неизвестный регистр '%s'\n", reg_name);
-    return ROX; 
-}
-
-
-
-
-
-
-
-
 
 
 

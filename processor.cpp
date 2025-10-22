@@ -24,7 +24,7 @@ int main() {
     }
     
     Assembler assembler;
-    proc_err = assembler_init(&assembler, "commands_data.txt", "bite_code.txt");
+    proc_err = assembler_init(&assembler);
     if (proc_err != NO_ERROR) {
         printf("Ошибка инициализации асемблера\n");
         return 1;
@@ -71,6 +71,7 @@ Processor_err processor_init(Processor *processor, type_t capacity) {
     processor->regs[3] = {RDX, 0};
     
     memset(processor->code, 0, sizeof(processor->code));
+    memset(processor->RAM, 0, sizeof(processor->RAM)); 
     
     Stack_err_t stack_err = stack_init(&processor->stk, capacity);
     if (stack_err != STACK_NO_ERROR) {
@@ -93,59 +94,67 @@ Processor_err run_bytecode(Processor *processor) { //выполняет байт
     
     while (processor->counter < 100) {
         int command = processor->code[processor->counter];
-        printf("Выполняется команда %d по адресу %d\n", command, processor->counter);
+        //printf("Выполняется команда %d по адресу %d\n", command, processor->counter);
         if (command == HLT) 
             break;
         
-            int step = 1;
-            switch (command) {
-                case HLT: 
-                //processor_HLT(processor);
-                    break;
-                case PUSH: 
-                    processor_PUSH(processor);
-                    step = 2;
-                    break;          
-                case ADD: 
-                    processor_ADD(processor);
-                    break;
-                case SUB: 
-                    processor_SUB(processor);
-                    break;
-                case MUL: 
-                    processor_MUL(processor);
-                    break;
-                case DIV: 
-                    processor_DIV(processor);
-                    break;
-                case SQRT: 
-                    processor_SQRT(processor);
-                    break;
-                case OUT: 
-                    processor_OUT(processor);
-                    break;
-                case PUSHR: 
-                    processor_PUSHR(processor);
-                    step = 2;
-                    break;
-                case POPR: 
-                    processor_POPR(processor);
-                    step = 2;
-                    break;  
-                case JMP: 
-                    processor_JMP(processor);  
-                    continue;
-                case CALL:                  
-                    processor_CALL(processor);
-                    continue;
-                case RET:                     
-                    processor_RET(processor);
-                    continue;
-                default: 
-                    printf("Неизвестная команда: %d\n", command);
-                    return STACK_ERROR;
+        int step = 1;
+        switch (command) {
+            case HLT: 
+            //processor_HLT(processor);
+                break;
+            case PUSH: 
+                processor_PUSH(processor);
+                step = 2;
+                break;          
+            case ADD: 
+                processor_ADD(processor);
+                break;
+            case SUB: 
+                processor_SUB(processor);
+                break;
+            case MUL: 
+                processor_MUL(processor);
+                break;
+            case DIV: 
+                processor_DIV(processor);
+                break;
+            case SQRT: 
+                processor_SQRT(processor);
+                break;
+            case OUT: 
+                processor_OUT(processor);
+                break;
+            case PUSHR: 
+                processor_PUSHR(processor);
+                step = 2;
+                break;
+            case POPR: 
+                processor_POPR(processor);
+                step = 2;
+                break;  
+            case JMP: 
+                processor_JMP(processor);  
+                continue;
+            case CALL:                  
+                processor_CALL(processor);
+                continue;
+            case RET:                     
+                processor_RET(processor);
+                continue;
+            case PUSHM: 
+                processor_PUSHM(processor);
+                step = 2;
+                break;
+            case POPM: 
+                processor_POPM(processor);
+                step = 2;
+                break;
+            default: 
+                printf("Неизвестная команда: %d\n", command);
+                return STACK_ERROR;
                 
-            }
+        }
         processor->counter += step;
     }
     return NO_ERROR;
@@ -163,8 +172,8 @@ Processor_err bite_code_read(Processor *processor) { //читает файл с 
     int count = 0;
     while (count < 100 && fscanf(filesteam, "%d", &processor->code[count]) == 1) {
         count++;
-        if (processor->code[count - 1] == 0)
-            break;
+        // if (processor->code[count - 1] == 0)
+        //     break;
             
     }
     
@@ -180,7 +189,7 @@ Processor_err processor_dump(Processor *processor) {
     
     printf(" РЕГИСТРЫ:\n");
     const char* reg_names[] = {"ROX", "RAX", "RBX", "RCX", "RDX"};
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         printf("  %s = %d\n", reg_names[i], processor->regs[i].reg_val);
     }
     
@@ -194,6 +203,11 @@ Processor_err processor_dump(Processor *processor) {
         for (int i = 0; i < processor->call_stack.size; i++) {
             printf("[%d] = %d (адрес возврата)\n", i, processor->call_stack.data[i]);
         }
+    }
+    printf("\n ОПЕРАТИВНАЯ ПАМЯТЬ\n");
+    for (int i = 0; i < 100; i++) {
+        printf("  RAM[%d] = %d\n", i, processor->RAM[i]);
+        
     }
     
     Stack_err_t stack_err = stack_verify(&processor->stk);

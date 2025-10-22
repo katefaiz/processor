@@ -1,25 +1,59 @@
-PUSH 10
-PUSH 20
-PUSH 30
-PUSH 40
-PUSH 50
-PUSH 60
-PUSH 70
-PUSH 80
-PUSH 90
-JMP :2
-PUSH 5000
-POPR RAX
-PUSHR RAX
-PUSH 2000
-ADD
-POPR RAX
-PUSH 40
-PUSH 50
-:2
-PUSH 60
-PUSH 80
-PUSH 20
-DIV
-PUSH 30
+PUSH 1      ; a = 1
+PUSH -3     ; b = -3  
+PUSH 2      ; c = 2
+; Заносим коэффициенты в регистры
+POPR RAX    ; RAX = c
+POPR RBX    ; RBX = b  
+POPR RCX    ; RCX = a
+; Вычисляем дискриминант: D = b^2 - 4ac
+PUSHR RBX   ; b
+PUSHR RBX   ; b
+MUL         ; b^2
+PUSH 4      ; 4
+PUSHR RCX   ; a
+MUL         ; 4a
+PUSHR RAX   ; c
+MUL         ; 4ac
+SUB         ; b^2 - 4ac
+; Вычисляем корни: x₁ = (-b + корень из D) / (2a), x₂ = (-b - корень из D) / (2a)
+CALL :1
 HLT
+; Функция вычисления корней
+:1
+; Сохраняем D в регистр RDX
+POPR RDX    ; RDX = D
+
+; Вычисляем корень из D
+PUSHR RDX   ; D
+SQRT        ; корень из D
+
+; Вычисляем -b
+PUSHR RBX   ; b
+PUSH -1
+MUL         ; -b
+
+; Вычисляем 2a
+PUSHR RCX   ; a
+PUSH 2
+MUL         ; 2a
+; Сохраняем промежуточные значения
+POPR RAX    ; RAX = 2a (знаменатель)
+POPR RBX    ; RBX = -b
+POPR RCX    ; RCX = корень из D
+; Вычисляем x₁ = (-b + корень из D) / (2a)
+PUSHR RBX   ; -b
+PUSHR RCX   ; корень из D
+ADD         ; -b + корень из D
+PUSHR RAX   ; 2a
+DIV         ; (-b + корень из D) / (2a)
+; Выводим первый корень
+OUT
+; Вычисляем x₂ = (-b - корень из D) / (2a)  
+PUSHR RBX   ; -b
+PUSHR RCX   ; корень из D
+SUB         ; -b - корень из D
+PUSHR RAX   ; 2a
+DIV         ; (-b - корень из D) / (2a)
+; Выводим второй корень
+OUT
+RET
