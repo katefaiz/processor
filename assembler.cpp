@@ -7,9 +7,10 @@
 
 #include "commands_funks.h" 
 #include "assembler.h"
+#include "assembler_struct_enum.h"
 
 
-Processor_err assembler_init(Assembler *assembler) {
+Assembler_err assembler_init(Assembler *assembler) {
     assert(assembler != NULL);
     
     memset(assembler->program, 0, sizeof(assembler->program));
@@ -17,16 +18,16 @@ Processor_err assembler_init(Assembler *assembler) {
     assembler->labels_count = 0;
     assembler->program_size = 0;
     
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 }
 
 
-Processor_err assembler_compile(Assembler *assembler) {
+Assembler_err assembler_compile(Assembler *assembler) {
     assert(assembler != NULL);
 
     FILE * filestream = fopen(assembler->source_file, "r");
     if (filestream == NULL) 
-        return OPENFILE_ERROR;
+        return ASS_OPENFILE_ERROR;
     
     char line[100];
     int count = 0;//сюда будем считать размер байт-кода
@@ -34,7 +35,7 @@ Processor_err assembler_compile(Assembler *assembler) {
     // ПЕРВЫЙ ПРОХОД: 
     while(fgets(line, sizeof(line), filestream)) {
         int ind = 0;
-        while (line[ind] == ' ')
+        while (line[ind] == ' ') // TODO: skip_space()
             ind++;
 
         if (line[ind] == ';') {
@@ -50,13 +51,13 @@ Processor_err assembler_compile(Assembler *assembler) {
                 //printf("Метка :%d указывает на адрес %d\n", label_index, count);
             }
         }
-        else if (line[ind] != '\n' && line[ind] != '\0') {
+        else if (line[ind] != '\n' && line[ind] != '\0') { 
             char command[10] = {};
             int cmd_start = ind;
             
             while (line[ind] != ' ' && line[ind] != '\0' && line[ind] != '\n') {
                 if (ind - cmd_start < 9) {
-                    command[ind - cmd_start] = line[ind];
+                    command[ind - cmd_start] = line[ind]; // TODO: можно всю строку. Вспомни строковые функции
                 }
                 ind++;
             }
@@ -66,7 +67,7 @@ Processor_err assembler_compile(Assembler *assembler) {
             
             //считаем сколько ячеек занимает команда
             if (cmd_code == PUSH || cmd_code == POPR || cmd_code == PUSHR || 
-                cmd_code == JMP || cmd_code == CALL) {
+                cmd_code == JMP || cmd_code == CALL || cmd_code == POPM || cmd_code == PUSHM) {
                 count += 2; 
             }
             else if (cmd_code != ERROR) {
@@ -100,7 +101,7 @@ Processor_err assembler_compile(Assembler *assembler) {
             // Если после метки есть команды - обрабатываем их
             if (line[ind] != '\n' && line[ind] != '\0' && line[ind] != ';') {
                 // Продолжаем обработку с этого места
-                // НЕ используем continue!
+               
             } else {
                 // Если после метки только комментарий или пусто - пропускаем строку
                 continue;
@@ -137,7 +138,7 @@ Processor_err assembler_compile(Assembler *assembler) {
                 //printf("PUSH: команда=%d, значение=%d\n", cmd_code, value);
             }    
         }
-        else if (cmd_code == PUSHR || cmd_code == POPR) {
+        else if (cmd_code == PUSHR || cmd_code == POPR || cmd_code == POPM || cmd_code == PUSHM) { 
             if (line[ind] != '\0' && line[ind] != '\n') {
                 int value_ind = 0;
                 while (line[ind] != '\0' && line[ind] != '\n' && line[ind] != ' ') {
@@ -175,10 +176,10 @@ Processor_err assembler_compile(Assembler *assembler) {
     assembler->program_size = count;
     fclose(filestream);
     assembler_resolve_labels(assembler);
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 }
 
-Processor_err assembler_resolve_labels(Assembler *assembler) { //из индекса метки получаю реальные адреса
+Assembler_err assembler_resolve_labels(Assembler *assembler) { //из индекса метки получаю реальные адреса
     assert(assembler != NULL);
     
     for (int i = 0; i < assembler->program_size; i++) {
@@ -190,14 +191,14 @@ Processor_err assembler_resolve_labels(Assembler *assembler) { //из индек
             i++; 
         }
     }
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 }
 
-Processor_err assembler_save_to_file(Assembler *assembler) { // записывает массив с кодом в файл
+Assembler_err assembler_save_to_file(Assembler *assembler) { // записывает массив с кодом в файл
     FILE *filestream = fopen(assembler->output_file, "w");
     if (filestream == NULL) {
         printf("Ошибка открытия файла \n");
-        return OPENFILE_ERROR;
+        return ASS_OPENFILE_ERROR;
     }
     
     for (int i = 0; i < assembler->program_size; i++) {
@@ -205,22 +206,22 @@ Processor_err assembler_save_to_file(Assembler *assembler) { // записыва
     }
     
     fclose(filestream);
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 
 }
 
-Processor_err assembler_destroy(Assembler *assembler) {
+Assembler_err assembler_destroy(Assembler *assembler) {
     assert(assembler != NULL);
     
     memset(assembler->program, 0, sizeof(assembler->program));
     memset(assembler->labels, -1, sizeof(assembler->labels));
     assembler->program_size = 0;
     
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 }
 
 Commands comparing_commands(const char *command) { 
-    if (strcmp(command, "PUSH") == 0)   
+    if (strcmp(command, "PUSH") == 0)
         return PUSH;
     if (strcmp(command, "ADD") == 0)    
         return ADD;
@@ -250,6 +251,8 @@ Commands comparing_commands(const char *command) {
         return POPM;
     if (strcmp(command, "PUSHM") == 0)   
         return PUSHM;
+    if (strcmp(command, "DRAW") == 0)   
+        return DRAW;
     else                                
         return ERROR;
 }
@@ -272,7 +275,7 @@ Registers_name comparing_registers(const char *reg_name) {
 
 
 
-Processor_err disasm_commands_data(int program[]) { // проверка ассемблирования
+Assembler_err disasm_commands_data(int program[]) { // проверка ассемблирования
     int index = 0;
     while (program[index] != HLT) {
         switch (program[index]) {
@@ -324,7 +327,7 @@ Processor_err disasm_commands_data(int program[]) { // проверка ассе
                 printf("ERROR!!!\n");          
         }      
     }
-    return NO_ERROR;
+    return ASS_NO_ERROR;
 }
 
 

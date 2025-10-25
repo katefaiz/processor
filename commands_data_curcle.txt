@@ -1,0 +1,49 @@
+; Квадрат 3x3
+
+PUSH 44     ; (4,4) помещаем точку в стек
+POPR RAX    ; добавляем это значение в регистр
+PUSH 1      ; закидываем в стек 1
+POPM RAX    ; в оперативную память с индексом 44 закидываю 1 (*)
+
+PUSH 45     ; (4,5)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 46     ; (4,6)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 54     ; (5,4)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 55     ; (5,5)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 56     ; (5,6)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 64     ; (6,4)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 65     ; (6,5)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+PUSH 66     ; (6,6)
+POPR RAX    
+PUSH 1      
+POPM RAX    
+
+DRAW
+HLT

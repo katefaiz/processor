@@ -5,60 +5,7 @@
 #include <assert.h>
 #include <sys/stat.h>
 
-#include "commands_funks.h" 
-#include "assembler.h"
-
-Processor_err bite_code_read(Processor *processor);
-Processor_err run_bytecode(Processor *processor);
-Processor_err processor_init(Processor *processor, type_t capacity);
-Processor_err processor_dump(Processor *processor);
-
-
-int main() { 
-   
-    Processor processor;
-    Processor_err proc_err = processor_init(&processor, 100);
-    if (proc_err != NO_ERROR) {
-        printf("Ошибка инициализации процессора\n");
-        return 1;
-    }
-    
-    Assembler assembler;
-    proc_err = assembler_init(&assembler);
-    if (proc_err != NO_ERROR) {
-        printf("Ошибка инициализации асемблера\n");
-        return 1;
-    }
-
-    proc_err = assembler_compile(&assembler);
-    if (proc_err != NO_ERROR) {
-        printf("Ошибка компиляции\n");
-        return 1;
-    }
-    //assembler_compile(&assembler);
-    proc_err = assembler_save_to_file(&assembler);
-    if (proc_err != NO_ERROR) {
-        printf("Ошибка сохранения байт-кода\n");
-        return 1;
-    }
-
-
-
-    bite_code_read(&processor);
-    run_bytecode(&processor);
-
-    printf("-----------------------------------\n");
-    //stack_dump(&processor.stk, stack_verify(&processor.stk));
-    processor_dump(&processor);
-    printf("МЕТКИ:\n");
-    for (int i = 0; i < 20; i++) { 
-        printf("%d ", assembler.labels[i]);
-        
-    }
-    
-    assembler_destroy(&assembler);
-    processor_destroy(&processor);
-}
+#include "processor.h"
 
 Processor_err processor_init(Processor *processor, type_t capacity) {
     assert(processor != NULL);
@@ -149,6 +96,9 @@ Processor_err run_bytecode(Processor *processor) { //выполняет байт
             case POPM: 
                 processor_POPM(processor);
                 step = 2;
+                break;
+            case DRAW:                 
+                processor_DRAW(processor);
                 break;
             default: 
                 printf("Неизвестная команда: %d\n", command);

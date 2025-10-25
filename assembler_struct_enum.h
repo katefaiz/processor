@@ -17,6 +17,8 @@ enum Registers_name {
     RDX = 4
 };
 
+// https://docs.github.com/en/authentication/connecting-to-github-with-ssh/generating-a-new-ssh-key-and-adding-it-to-the-ssh-agent
+
 struct Register {
     Registers_name reg; //имя 
     type_t reg_val; //значение (то, что в нем хранится)

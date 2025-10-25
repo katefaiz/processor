@@ -21,5 +21,6 @@ Processor_err processor_RET(Processor *processor);
 Processor_err processor_destroy(Processor *processor);
 Processor_err processor_PUSHM(Processor *processor);
 Processor_err processor_POPM(Processor *processor);
+Processor_err processor_DRAW(Processor *processor);
 
 #endif //CF_H

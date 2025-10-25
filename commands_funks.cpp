@@ -91,10 +91,6 @@ Processor_err processor_OUT(Processor *processor) {
 
 }
 
-
-
-
-
 Processor_err processor_POPR(Processor *processor) { // удаляю из стека и кладу в регистр
     type_t val = 0;
     int num_reg = processor->code[processor->counter + 1];
@@ -102,6 +98,7 @@ Processor_err processor_POPR(Processor *processor) { // удаляю из сте
     processor->regs[num_reg].reg_val = val;
     //const char* reg_names[] = {"ROX", "RAX", "RBX", "RCX", "RDX"};
     //printf("POPR: значение %d записано в регистр %s\n", val, reg_names[num_reg]);
+    
     return NO_ERROR;
     
 }
@@ -109,7 +106,7 @@ Processor_err processor_POPR(Processor *processor) { // удаляю из сте
 Processor_err processor_PUSHR(Processor *processor) { //кладу в стек из регистра, в регистре остается
     int num_reg = processor->code[processor->counter + 1];
     type_t val = processor->regs[num_reg].reg_val;
-    stack_push(&processor->stk, val);
+    stack_push(&processor->stk, val); // TODO: проверять ошибки
     //const char* reg_names[] = {"ROX", "RAX", "RBX", "RCX", "RDX"};
     //printf("PUSHR: значение %d записано в регистр %s\n", val, reg_names[num_reg]);
     return NO_ERROR;
@@ -119,11 +116,9 @@ Processor_err processor_PUSHR(Processor *processor) { //кладу в стек �
 Processor_err processor_JMP(Processor *processor) {
     
     int jump_address = processor->code[processor->counter + 1]; //адрес, куда нужно прыгнуть
-    
     processor->counter = jump_address ;
     
     printf("JMP: переход на адрес %d\n", jump_address);
-    
     printf("\n=== Состояние стека после JMP ===\n");
     Stack_err_t stack_err = stack_verify(&processor->stk);
     stack_dump(&processor->stk, stack_err);
@@ -133,12 +128,11 @@ Processor_err processor_JMP(Processor *processor) {
     
     return NO_ERROR;
 }
+
 Processor_err processor_CALL(Processor *processor) {
     assert(processor != NULL);
     // адрес перехода (метка функции)
     int jump_address = processor->code[processor->counter + 1];
-    
-    
     int return_address = processor->counter + 2;// адрес возврата - следующая команда после CALL 
 
     Stack_err_t stack_err = stack_push(&processor->call_stack, return_address);
@@ -149,11 +143,10 @@ Processor_err processor_CALL(Processor *processor) {
     }
     
     processor->counter = jump_address;
-    
     //printf("CALL: переход к адресу %d, адрес возврата %d\n", jump_address, return_address);
-    
     return NO_ERROR;
 }
+
 Processor_err processor_RET(Processor *processor) {
     assert(processor != NULL);
 
@@ -166,14 +159,9 @@ Processor_err processor_RET(Processor *processor) {
     }
     
     processor->counter = return_address;
-    
     //printf("RET: возврат к адресу %d\n", return_address);
-    
     return NO_ERROR;
 }
-
-
-
 
 Processor_err processor_PUSHM(Processor *processor) { // PUSHM - из памяти в стек
     int reg_index = processor->code[processor->counter + 1];
@@ -202,21 +190,28 @@ Processor_err processor_POPM(Processor *processor) { // POPM - из стека �
     type_t value = 0;
     stack_pop(&processor->stk, &value);
     processor->RAM[address] = value;
-    
+   // printf("POPM: записано значение %d в RAM[%d]\n", value, address);
     return NO_ERROR;
 }
 
-
-
-
-
-
-
-
-
-
-
-
+Processor_err processor_DRAW(Processor *processor) {
+    assert(processor != NULL);
+    
+    printf("\n=== ВИДЕОПАМЯТЬ ===\n");
+    
+    for (int i = 0; i < 100; i++) {
+        char symbol = (processor->RAM[i] == 1) ? '*' : ' ';
+        printf("%c", symbol);
+        
+        //переход на новую строку каждые 10 символов
+        if ((i + 1) % 10 == 0) {
+            printf("\n");
+        }
+    }
+    
+    printf("===================\n\n");
+    return NO_ERROR;
+}
 
 Processor_err processor_destroy(Processor *processor) {
     assert(processor != NULL);
